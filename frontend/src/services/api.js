@@ -3,7 +3,6 @@ import Cookies from 'js-cookie';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || `${window.location.protocol}//${window.location.hostname}:8080`;
 
-// Create axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
