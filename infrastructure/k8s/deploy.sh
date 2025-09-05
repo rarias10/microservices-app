@@ -45,10 +45,20 @@ kubectl apply -f db-init.yaml
 
 # Deploy databases
 echo "🗄️  Deploying auth database..."
+if kubectl get statefulset postgres-auth -n $NAMESPACE &> /dev/null; then
+    echo "🗑️  Deleting existing auth database StatefulSet..."
+    kubectl delete statefulset postgres-auth -n $NAMESPACE
+    kubectl delete pvc -l app=postgres-auth -n $NAMESPACE --ignore-not-found=true
+fi
 kubectl apply -f postgres-auth.yaml
 kubectl apply -f postgres-auth-service.yaml
 
 echo "🗄️  Deploying user database..."
+if kubectl get statefulset postgres-user -n $NAMESPACE &> /dev/null; then
+    echo "🗑️  Deleting existing user database StatefulSet..."
+    kubectl delete statefulset postgres-user -n $NAMESPACE
+    kubectl delete pvc -l app=postgres-user -n $NAMESPACE --ignore-not-found=true
+fi
 kubectl apply -f postgres-user.yaml
 kubectl apply -f postgres-user-service.yaml
 
