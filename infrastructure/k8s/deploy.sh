@@ -5,7 +5,7 @@ set -e
 
 NAMESPACE="microservices-app"
 DOMAIN="your-domain.com"
-REGISTRY="your-registry"
+REGISTRY="rarias1082"
 
 echo "🚀 Deploying microservices to Kubernetes..."
 

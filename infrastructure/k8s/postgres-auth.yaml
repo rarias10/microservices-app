@@ -44,6 +44,22 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 5
+          periodSeconds: 5
       volumes:
       - name: init-script
         configMap:
@@ -53,7 +69,7 @@ spec:
       name: postgres-storage
     spec:
       accessModes: ["ReadWriteOnce"]
-      storageClassName: gp2
+      storageClassName: gp3
       resources:
         requests:
           storage: 10Gi

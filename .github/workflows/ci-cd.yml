@@ -3,12 +3,19 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ main, develop ]
+    paths:
+      - 'services/**'
+      - 'frontend/**'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'services/**'
+      - 'frontend/**'
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  REGISTRY: docker.io
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
 jobs:
   test:
@@ -45,32 +52,51 @@ jobs:
     if: github.event_name == 'push'
     strategy:
       matrix:
-        service: [auth-service, user-service, frontend]
+        include:
+          - service: auth-service
+            context: ./services/auth-service
+            changed-files: services/auth-service/**
+          - service: user-service
+            context: ./services/user-service
+            changed-files: services/user-service/**
+          - service: frontend
+            context: ./frontend
+            changed-files: frontend/**
     
     steps:
     - uses: actions/checkout@v3
     
-    - name: Log in to Container Registry
+    - name: Check for changes
+      uses: dorny/paths-filter@v2
+      id: changes
+      with:
+        filters: |
+          changed:
+            - '${{ matrix.changed-files }}'
+    
+    - name: Log in to Docker Hub
+      if: steps.changes.outputs.changed == 'true'
       uses: docker/login-action@v2
       with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        username: ${{ env.DOCKER_USERNAME }}
+        password: ${{ env.DOCKER_PASSWORD }}
     
     - name: Extract metadata
+      if: steps.changes.outputs.changed == 'true'
       id: meta
       uses: docker/metadata-action@v4
       with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}
+        images: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}
         tags: |
           type=ref,event=branch
-          type=ref,event=pr
           type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
     
     - name: Build and push Docker image
+      if: steps.changes.outputs.changed == 'true'
       uses: docker/build-push-action@v4
       with:
-        context: ${{ matrix.service == 'frontend' && './frontend' || format('./services/{0}', matrix.service) }}
+        context: ${{ matrix.context }}
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
@@ -79,6 +105,9 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
+    strategy:
+      matrix:
+        service: [auth-service, user-service, frontend]
     
     steps:
     - uses: actions/checkout@v3
@@ -86,30 +115,12 @@ jobs:
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/auth-service:${{ github.sha }}
+        image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
         format: 'sarif'
-        output: 'trivy-results.sarif'
+        output: 'trivy-results-${{ matrix.service }}.sarif'
     
     - name: Upload Trivy scan results
       uses: github/codeql-action/upload-sarif@v2
       with:
-        sarif_file: 'trivy-results.sarif'
+        sarif_file: 'trivy-results-${{ matrix.service }}.sarif'
 
-  deploy:
-    needs: [build-and-push, security-scan]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup kubectl
-      uses: azure/setup-kubectl@v3
-    
-    - name: Deploy to Kubernetes
-      run: |
-        kubectl apply -f infrastructure/k8s/
-        kubectl set image deployment/auth-service auth-service=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/auth-service:${{ github.sha }} -n microservices-app
-        kubectl set image deployment/user-service user-service=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/user-service:${{ github.sha }} -n microservices-app
-        kubectl rollout status deployment/auth-service -n microservices-app
-        kubectl rollout status deployment/user-service -n microservices-app

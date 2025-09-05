@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: your-registry/frontend:v1.0.0
+        image: rarias1082/frontend:latest
         ports:
         - containerPort: 80
         resources:
