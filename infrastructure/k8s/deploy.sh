@@ -4,7 +4,7 @@
 set -e
 
 NAMESPACE="microservices-app"
-DOMAIN="your-domain.com"
+DOMAIN="kubevpro.basquiat.app"
 REGISTRY="rarias1082"
 
 echo "🚀 Deploying microservices to Kubernetes..."
@@ -69,5 +69,5 @@ kubectl get pods -n $NAMESPACE
 kubectl get services -n $NAMESPACE
 kubectl get ingress -n $NAMESPACE
 
-echo "🌐 Your application will be available at: https://$DOMAIN"
+echo "🌐 Your application will be available at: http://$DOMAIN"
 echo "📊 Monitor with: kubectl logs -f deployment/auth-service -n $NAMESPACE"

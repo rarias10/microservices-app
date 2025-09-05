@@ -7,7 +7,7 @@ data:
   db-host: "postgresql-service"
   auth-db-name: "auth_db"
   user-db-name: "user_db"
-  frontend-url: "https://yourdomain.com"
+  frontend-url: "http://kubevpro.basquiat.app"
   log-level: "info"
 ---
 apiVersion: v1
