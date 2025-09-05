@@ -43,8 +43,28 @@ kubectl apply -f postgres-user-service.yaml
 
 # Wait for databases
 echo "⏳ Waiting for databases to be ready..."
-kubectl wait --for=condition=ready pod -l app=postgres-auth -n $NAMESPACE --timeout=300s
-kubectl wait --for=condition=ready pod -l app=postgres-user -n $NAMESPACE --timeout=300s
+echo "📋 Checking database pod status..."
+kubectl get pods -l app=postgres-auth -n $NAMESPACE
+kubectl get pods -l app=postgres-user -n $NAMESPACE
+
+echo "📋 Checking database pod events..."
+kubectl describe pod -l app=postgres-auth -n $NAMESPACE
+
+echo "⏳ Waiting for auth database (5 minutes timeout)..."
+if ! kubectl wait --for=condition=ready pod -l app=postgres-auth -n $NAMESPACE --timeout=300s; then
+    echo "❌ Auth database failed to start. Checking logs..."
+    kubectl logs -l app=postgres-auth -n $NAMESPACE --tail=50
+    echo "❌ Deployment failed. Check the logs above."
+    exit 1
+fi
+
+echo "⏳ Waiting for user database (5 minutes timeout)..."
+if ! kubectl wait --for=condition=ready pod -l app=postgres-user -n $NAMESPACE --timeout=300s; then
+    echo "❌ User database failed to start. Checking logs..."
+    kubectl logs -l app=postgres-user -n $NAMESPACE --tail=50
+    echo "❌ Deployment failed. Check the logs above."
+    exit 1
+fi
 
 # Deploy services
 echo "🔧 Deploying microservices..."
