@@ -19,6 +19,17 @@ fi
 echo "📦 Creating namespace..."
 kubectl apply -f namespace.yaml
 
+# Check available storage classes
+echo "💾 Checking available storage classes..."
+kubectl get storageclass
+
+if ! kubectl get storageclass gp3 &> /dev/null; then
+    echo "⚠️  gp3 storage class not found. Using gp2..."
+    sed -i 's/storageClassName: gp3/storageClassName: gp2/g' postgres-auth.yaml postgres-user.yaml
+else
+    echo "✅ gp3 storage class found."
+fi
+
 # Generate secrets (if not exists)
 if ! kubectl get secret db-secret -n $NAMESPACE &> /dev/null; then
     echo "🔐 Creating database secrets..."
