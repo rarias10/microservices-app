@@ -11,6 +11,13 @@ on:
     paths:
       - 'services/**'
       - 'frontend/**'
+  workflow_dispatch:
+    inputs:
+      services:
+        description: 'Services to build (comma-separated: auth-service,user-service,frontend or all)'
+        required: true
+        default: 'all'
+        type: string
 
 env:
   REGISTRY: docker.io
@@ -49,7 +56,7 @@ jobs:
   build-and-push:
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     strategy:
       matrix:
         include:
@@ -66,23 +73,35 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    - name: Check for changes
+    - name: Check for changes or manual trigger
       uses: dorny/paths-filter@v2
       id: changes
+      if: github.event_name == 'push'
       with:
         filters: |
           changed:
             - '${{ matrix.changed-files }}'
     
+    - name: Check manual service selection
+      id: manual
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        SERVICES="${{ github.event.inputs.services }}"
+        if [[ "$SERVICES" == "all" ]] || [[ "$SERVICES" == *"${{ matrix.service }}"* ]]; then
+          echo "build=true" >> $GITHUB_OUTPUT
+        else
+          echo "build=false" >> $GITHUB_OUTPUT
+        fi
+    
     - name: Log in to Docker Hub
-      if: steps.changes.outputs.changed == 'true'
+      if: (github.event_name == 'push' && steps.changes.outputs.changed == 'true') || (github.event_name == 'workflow_dispatch' && steps.manual.outputs.build == 'true')
       uses: docker/login-action@v2
       with:
         username: ${{ env.DOCKER_USERNAME }}
         password: ${{ env.DOCKER_PASSWORD }}
     
     - name: Extract metadata
-      if: steps.changes.outputs.changed == 'true'
+      if: (github.event_name == 'push' && steps.changes.outputs.changed == 'true') || (github.event_name == 'workflow_dispatch' && steps.manual.outputs.build == 'true')
       id: meta
       uses: docker/metadata-action@v4
       with:
@@ -93,7 +112,7 @@ jobs:
           type=raw,value=latest,enable={{is_default_branch}}
     
     - name: Build and push Docker image
-      if: steps.changes.outputs.changed == 'true'
+      if: (github.event_name == 'push' && steps.changes.outputs.changed == 'true') || (github.event_name == 'workflow_dispatch' && steps.manual.outputs.build == 'true')
       uses: docker/build-push-action@v4
       with:
         context: ${{ matrix.context }}
@@ -104,7 +123,7 @@ jobs:
   security-scan:
     needs: build-and-push
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     strategy:
       matrix:
         service: [auth-service, user-service, frontend]
