@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: microservices-app
+data:
+  db-host: "postgresql-service"
+  auth-db-name: "auth_db"
+  user-db-name: "user_db"
+  frontend-url: "https://yourdomain.com"
+  log-level: "info"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+  namespace: microservices-app
+type: Opaque
+data:
+  username: cG9zdGdyZXM=  # postgres (base64)
+  password: cGFzc3dvcmQ=  # password (base64) - Change in production!
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jwt-secret
+  namespace: microservices-app
+type: Opaque
+data:
+  access-secret: eW91ci1zdXBlci1zZWNyZXQtand0LWtleQ==  # Change in production!
+  refresh-secret: eW91ci1zdXBlci1zZWNyZXQtcmVmcmVzaC1rZXk=  # Change in production!
